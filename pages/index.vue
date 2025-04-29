@@ -29,7 +29,13 @@
 
             startPosition(e, canvasIndex) {
                 this.canvases[canvasIndex].isDrawing = true;
-                const context = this.canvases[canvasIndex].context;
+                this.canvases[canvasIndex].isDrawing = true;
+                const canvasObj = this.canvases[canvasIndex];
+                const context = canvasObj.context;
+
+                canvasObj.prevX = null;
+                canvasObj.prevY = null;
+
                 context.beginPath();
             },
 
