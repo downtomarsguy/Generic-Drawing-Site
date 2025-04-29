@@ -1,33 +1,24 @@
 <template>
     <div class="">
-        <canvas id="canvas-container">
+        <div id="canvas-container">
+            <canvas id="main-canvas">
 
-        </canvas>
+            </canvas>
+        </div>
+        <button @click="createCanvas">Spawn Canvas</button>
     </div>
 </template>
 
 <script>
-    
     export default {
         data() {
             return {
-                width: window.innerWidth,
+                width: window.innerWidth - 500,
                 height: window.innerHeight,
-                painting: false,
-                context: null,
-            }
-        },
-
-        mounted() {
-            const canvas = document.getElementById("canvas-container");
-            this.context = canvas.getContext("2d");
-            canvas.height = this.height;
-            canvas.width = this.width;
-
-            window.addEventListener("resize", this.handleResize);
-            canvas.addEventListener("mousedown", this.startPosition);
-            canvas.addEventListener("mouseup", this.endPosition);
-            canvas.addEventListener("mousemove", this.draw);
+                activeDraw: false,
+                canvases: [],
+                stabalizingFactor: 0.1,
+            };
         },
 
         methods: {
@@ -35,28 +26,76 @@
                 this.width = window.innerWidth;
                 this.height = window.innerHeight;
             },
-            
-            startPosition() {
-                this.painting = true;
+
+            startPosition(e, canvasIndex) {
+                this.canvases[canvasIndex].isDrawing = true;
+                const context = this.canvases[canvasIndex].context;
+                context.beginPath();
             },
 
-            endPosition() {
-                this.painting = false;
-                this.context.beginPath();
+            endPosition(e, canvasIndex) {
+                this.canvases[canvasIndex].isDrawing = false;
+                const context = this.canvases[canvasIndex].context;
+                context.beginPath();
             },
 
-            draw(e) {
-                if(!this.painting) return;
-                
-                this.context.lineWidth = 10;
-                this.context.lineCap = "round";
+            draw(e, canvasIndex) {
+                const canvasObj = this.canvases[canvasIndex];
+                if (!canvasObj.isDrawing) return;
 
-                this.context.lineTo(e.clientX, e.clientY);
-                this.context.stroke();
-            }
-        }
-    }
-    
+                const context = canvasObj.context;
+                const canvas = canvasObj.canvas;
+                const rect = canvas.getBoundingClientRect();
+
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                if (canvasObj.prevX === null || canvasObj.prevY === null) {
+                    canvasObj.prevX = x;
+                    canvasObj.prevY = y;
+                    
+                    return;
+                }
+
+                const stableX = canvasObj.prevX + (x - canvasObj.prevX) * this.stabalizingFactor;
+                const stableY = canvasObj.prevY + (y - canvasObj.prevY) * this.stabalizingFactor;
+
+                context.lineWidth = 10;
+                context.lineCap = "round";
+                context.lineTo(stableX, stableY);
+                context.stroke();
+
+                canvasObj.prevX = stableX;
+                canvasObj.prevY = stableY;
+            },
+
+            createCanvas() {
+                const canvasContainer = document.getElementById("canvas-container");
+                const canvasIndex = this.canvases.length;
+
+                const canvas = document.createElement("canvas");
+                canvas.id = `canvas-${canvasIndex}`;
+                canvas.width = 500;
+                canvas.height = 500;
+
+                const context = canvas.getContext("2d");
+                canvasContainer.appendChild(canvas);
+
+                this.canvases.push({
+                    canvas,
+                    context,
+                    isDrawing: false,
+                    prevX: null,
+                    prevY: null,
+                });
+
+                canvas.addEventListener("mousedown", (e) => this.startPosition(e, canvasIndex));
+                canvas.addEventListener("mouseup", (e) => this.endPosition(e, canvasIndex));
+                canvas.addEventListener("mousemove", (e) => this.draw(e, canvasIndex));
+                window.addEventListener("resize", this.handleResize);
+            },
+        },
+    };
 </script>
 
 <style>
@@ -68,5 +107,10 @@
 
     canvas {
         border: 2px solid black;
+    }
+
+    div {
+        display: flex;
+        align-items: flex-start;
     }
 </style>
