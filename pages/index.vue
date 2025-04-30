@@ -1,9 +1,6 @@
 <template>
     <div class="">
         <div id="canvas-container">
-            <canvas id="main-canvas">
-
-            </canvas>
         </div>
         <button @click="createCanvas">Spawn Canvas</button>
     </div>
@@ -68,7 +65,15 @@
 
                 context.lineWidth = 10;
                 context.lineCap = "round";
-                context.lineTo(stableX, stableY);
+                context.lineJoin = "round";
+
+                context.moveTo(canvasObj.prevX, canvasObj.prevY);
+                context.quadraticCurveTo(
+                    canvasObj.prevX + (stableX - canvasObj.prevX) / 2, 
+                    canvasObj.prevY + (stableY - canvasObj.prevY) / 2, 
+                    stableX, 
+                    stableY
+                );
                 context.stroke();
 
                 canvasObj.prevX = stableX;
