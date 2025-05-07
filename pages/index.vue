@@ -26,197 +26,158 @@
 </template>
 
 <script>
-    export default {
-        data() {
-            return {
-                canvases: [],
-                stabalizingFactor: 0.1,
-            };
+import { fabric } from "fabric";
+
+export default {
+    data() {
+        return {
+            canvases: [],
+            mode: "draw",
+        };
+    },
+
+    methods: {
+        toggleMode() {
+            this.mode = this.mode === "draw" ? "view" : "draw";
+            this.canvases.forEach(canvasObj => {
+                this.toggleCanvasMode(canvasObj);
+            });
         },
 
-        methods: {
-            toggleMode() {
-                this.canvases.forEach(canvasObj => {
-                    this.toggleCanvasMode(canvasObj);
-                });
-            },
+        toggleLayerMode(index) {
+            const canvasObj = this.canvases[index];
+            this.toggleCanvasMode(canvasObj);
+        },
 
-            toggleLayerMode(index) {
-                const canvasObj = this.canvases[index];
-                this.toggleCanvasMode(canvasObj);
-            },
-
-            toggleCanvasMode(canvasObj) {
-                if (canvasObj.mode === "draw") {
-                    canvasObj.mode = "view";
-                    canvasObj.canvas.style.border = "2px dotted gray";
-                } else {
-                    canvasObj.mode = "draw";
-                    canvasObj.canvas.style.border = "2px solid black";
-                }
-            },
-
-            handleResize() {
-                this.width = window.innerWidth;
-                this.height = window.innerHeight;
-            },
-
-            startDrag(e, canvasIndex) {
-                if (this.canvases[canvasIndex].mode === "draw") return;
-                const canvasObj = this.canvases[canvasIndex];
-                canvasObj.isDragging = true;
-                canvasObj.offsetX = e.clientX - canvasObj.x;
-                canvasObj.offsetY = e.clientY - canvasObj.y;
-
-                document.body.style.userSelect = "none";
-            },
-
-            stopDrag(e, canvasIndex) {
-                if (this.canvases[canvasIndex].mode === "draw") return;
-                const canvasObj = this.canvases[canvasIndex];
-                canvasObj.isDragging = false;
-                document.body.style.userSelect = "";
-            },
-
-            dragCanvas(e, canvasIndex) {
-                if (this.canvases[canvasIndex].mode === "draw") return;
-                const canvasObj = this.canvases[canvasIndex];
-                if (!canvasObj.isDragging) return;
-
-                canvasObj.x = e.clientX - canvasObj.offsetX;
-                canvasObj.y = e.clientY - canvasObj.offsetY;
-
-                canvasObj.canvas.style.left = `${canvasObj.x}px`;
-                canvasObj.canvas.style.top = `${canvasObj.y}px`;
-            },
-
-            startPosition(e, canvasIndex) {
-                if (this.canvases[canvasIndex].mode === "view") return;
-                this.canvases[canvasIndex].isDrawing = true;
-                const canvasObj = this.canvases[canvasIndex];
-                const context = canvasObj.context;
-
-                canvasObj.prevX = null;
-                canvasObj.prevY = null;
-
-                context.beginPath();
-            },
-
-            endPosition(e, canvasIndex) {
-                if (this.canvases[canvasIndex].mode === "view") return;
-                this.canvases[canvasIndex].isDrawing = false;
-                const context = this.canvases[canvasIndex].context;
-                context.beginPath();
-            },
-
-            draw(e, canvasIndex) {
-                if (this.canvases[canvasIndex].mode === "view") return;
-                const canvasObj = this.canvases[canvasIndex];
-                if (!canvasObj.isDrawing) return;
-
-                const context = canvasObj.context;
-                const canvas = canvasObj.canvas;
-                const rect = canvas.getBoundingClientRect();
-
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-
-                if (canvasObj.prevX === null || canvasObj.prevY === null) {
-                    canvasObj.prevX = x;
-                    canvasObj.prevY = y;
-
-                    return;
-                }
-
-                const stableX = canvasObj.prevX + (x - canvasObj.prevX) * this.stabalizingFactor;
-                const stableY = canvasObj.prevY + (y - canvasObj.prevY) * this.stabalizingFactor;
-
-                context.lineWidth = 10;
-                context.lineCap = "round";
-                context.lineJoin = "round";
-
-                context.moveTo(canvasObj.prevX, canvasObj.prevY);
-                context.quadraticCurveTo(
-                    canvasObj.prevX + (stableX - canvasObj.prevX) / 2,
-                    canvasObj.prevY + (stableY - canvasObj.prevY) / 2,
-                    stableX,
-                    stableY
-                );
-                context.stroke();
-
-                canvasObj.prevX = stableX;
-                canvasObj.prevY = stableY;
-            },
-
-            createCanvas() {
-                const canvasContainer = document.getElementById("canvas-container");
-                const canvasIndex = this.canvases.length;
-
-                const canvas = document.createElement("canvas");
-                canvas.id = `canvas-${canvasIndex}`;
-                canvas.width = 500;
-                canvas.height = 500;
-
-                const context = canvas.getContext("2d");
-                canvas.style.position = "absolute";
-                canvas.style.left = `${50 * canvasIndex}px`;
-                canvas.style.top = `${50 * canvasIndex}px`;
-
-                const canvasObj = {
-                    canvas,
-                    context,
-                    mode: "view",
-                    isDrawing: false,
-                    prevX: null,
-                    prevY: null,
-                    isDragging: false,
-                    x: 50 * canvasIndex,
-                    y: 50 * canvasIndex,
-                    opacity: 1,
-                    visible: true,
-                };
-
-                canvas.style.border = "2px dotted gray"; 
-
-                canvasContainer.appendChild(canvas);
-                this.canvases.push(canvasObj);
-
-                canvas.addEventListener("mousedown", (e) => this.startPosition(e, canvasIndex));
-                canvas.addEventListener("mouseup", (e) => this.endPosition(e, canvasIndex));
-                canvas.addEventListener("mousemove", (e) => this.draw(e, canvasIndex));
-
-                canvas.addEventListener("mousedown", (e) => this.startDrag(e, canvasIndex));
-                window.addEventListener("mousemove", (e) => this.dragCanvas(e, canvasIndex));
-                window.addEventListener("mouseup", (e) => this.stopDrag(e, canvasIndex));
-            },
-
-            toggleLayerVisibility(index) {
-                const canvasObj = this.canvases[index];
-                canvasObj.canvas.style.display = canvasObj.visible ? "block" : "none";
-            },
-
-            adjustOpacity(index) {
-                const canvasObj = this.canvases[index];
-                canvasObj.canvas.style.opacity = canvasObj.opacity;
-            },
-
-            moveLayerUp(index) {
-                if (index > 0) {
-                    const temp = this.canvases[index];
-                    this.canvases.splice(index, 1);
-                    this.canvases.splice(index - 1, 0, temp);
-                }
-            },
-
-            moveLayerDown(index) {
-                if (index < this.canvases.length - 1) {
-                    const temp = this.canvases[index];
-                    this.canvases.splice(index, 1);
-                    this.canvases.splice(index + 1, 0, temp);
-                }
+        toggleCanvasMode(canvasObj) {
+            if (canvasObj.mode === "draw") {
+                canvasObj.mode = "view";
+                canvasObj.canvas.selection = false;
+            } else {
+                canvasObj.mode = "draw";
+                canvasObj.canvas.selection = true;
             }
-        }
-    };
+        },
+
+        handleResize() {
+            this.width = window.innerWidth;
+            this.height = window.innerHeight;
+        },
+
+        createCanvas() {
+            const canvasContainer = document.getElementById("canvas-container");
+            const canvasIndex = this.canvases.length;
+
+            const canvas = new fabric.Canvas(`canvas-${canvasIndex}`, {
+                width: 500,
+                height: 500,
+                backgroundColor: "#f0f0f0",
+            });
+
+            canvas.set({ left: 50 * canvasIndex, top: 50 * canvasIndex });
+            canvas.selection = false;
+
+            const canvasObj = {
+                canvas,
+                mode: "view",
+                opacity: 1,
+                visible: true,
+            };
+
+            canvasContainer.appendChild(canvas.lowerCanvasEl);
+
+            this.canvases.push(canvasObj);
+
+            canvas.on("mouse:down", (e) => this.startPosition(e, canvasIndex));
+            canvas.on("mouse:up", (e) => this.endPosition(e, canvasIndex));
+            canvas.on("mouse:move", (e) => this.draw(e, canvasIndex));
+        },
+
+        toggleLayerVisibility(index) {
+            const canvasObj = this.canvases[index];
+            canvasObj.canvas.setVisible(canvasObj.visible);
+            canvasObj.canvas.renderAll();
+        },
+
+        adjustOpacity(index) {
+            const canvasObj = this.canvases[index];
+            canvasObj.canvas.setOpacity(canvasObj.opacity);
+            canvasObj.canvas.renderAll();
+        },
+
+        moveLayerUp(index) {
+            if (index > 0) {
+                const temp = this.canvases[index];
+                this.canvases.splice(index, 1);
+                this.canvases.splice(index - 1, 0, temp);
+                this.reorderLayers();
+            }
+        },
+
+        moveLayerDown(index) {
+            if (index < this.canvases.length - 1) {
+                const temp = this.canvases[index];
+                this.canvases.splice(index, 1);
+                this.canvases.splice(index + 1, 0, temp);
+                this.reorderLayers();
+            }
+        },
+
+        reorderLayers() {
+            const canvasContainer = document.getElementById("canvas-container");
+            this.canvases.forEach((canvasObj, index) => {
+                canvasObj.canvas.set({ left: 50 * index, top: 50 * index });
+                canvasContainer.appendChild(canvasObj.canvas.lowerCanvasEl);
+            });
+        },
+
+        startPosition(e, canvasIndex) {
+            if (this.canvases[canvasIndex].mode === "view") return;
+
+            const canvasObj = this.canvases[canvasIndex];
+            canvasObj.isDrawing = true;
+            canvasObj.prevX = e.e.offsetX;
+            canvasObj.prevY = e.e.offsetY;
+        },
+
+        endPosition(e, canvasIndex) {
+            if (this.canvases[canvasIndex].mode === "view") return;
+
+            const canvasObj = this.canvases[canvasIndex];
+            canvasObj.isDrawing = false;
+        },
+
+        draw(e, canvasIndex) {
+            if (this.canvases[canvasIndex].mode === "view") return;
+
+            const canvasObj = this.canvases[canvasIndex];
+            if (!canvasObj.isDrawing) return;
+
+            const canvas = canvasObj.canvas;
+            const x = e.e.offsetX;
+            const y = e.e.offsetY;
+
+            if (canvasObj.prevX === null || canvasObj.prevY === null) {
+                canvasObj.prevX = x;
+                canvasObj.prevY = y;
+                return;
+            }
+
+            const stableX = canvasObj.prevX + (x - canvasObj.prevX) * 0.1;
+            const stableY = canvasObj.prevY + (y - canvasObj.prevY) * 0.1;
+
+            const line = new fabric.Line([canvasObj.prevX, canvasObj.prevY, stableX, stableY], {
+                stroke: "black",
+                strokeWidth: 5,
+                selectable: false
+            });
+
+            canvas.add(line);
+            canvasObj.prevX = stableX;
+            canvasObj.prevY = stableY;
+        },
+    }
+};
 </script>
 
 <style scoped>
