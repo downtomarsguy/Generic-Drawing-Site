@@ -1,208 +1,115 @@
 <template>
     <div>
-        <div id="canvas-container"></div>
-        <button @click="createCanvas">Spawn Canvas</button>
-        
-        <button @click="toggleMode">{{ mode === "draw" ? "Switch to View Mode" : "Switch to Draw Mode" }}</button>
-
-        <div v-if="canvases.length > 0">
-            <h3>Layer Controls</h3>
-            <div v-for="(canvasObj, index) in canvases" :key="canvasObj.canvas.id" class="layer-control">
-                <div>
-                    <label>Layer {{ index + 1 }}</label>
-                    <input type="checkbox" v-model="canvasObj.visible" @change="toggleLayerVisibility(index)" /> Visible
-                    <button @click="moveLayerUp(index)">↑</button>
-                    <button @click="moveLayerDown(index)">↓</button>
-                    <input type="range" min="0" max="1" step="0.1" v-model="canvasObj.opacity" @input="adjustOpacity(index)" />
-                    <span>{{ (canvasObj.opacity * 100).toFixed(0) }}%</span>
-                    
-                    <button @click="toggleLayerMode(index)">
-                        {{ canvasObj.mode === "draw" ? "Switch to View Mode" : "Switch to Draw Mode" }}
-                    </button>
-                </div>
-            </div>
+      <div id="canvas-container" ref="canvasContainer"></div>
+  
+      <div class="controls">
+        <div class="tool-panel">
+          <button @click="toggleDrawingMode" :class="{ active: isDrawingMode }">
+            {{ isDrawingMode ? "Switch to Select Mode" : "Switch to Draw Mode" }}
+          </button>
         </div>
+  
+        <div class="color-panel">
+          <label for="brush-color">Color:</label>
+          <input type="color" id="brush-color" v-model="brushColor" @change="updateBrushSettings">
+  
+          <label for="brush-width">Width:</label>
+          <input type="range" id="brush-width" min="1" max="50" v-model.number="brushWidth" @input="updateBrushSettings">
+          <span>{{ brushWidth }}px</span>
+        </div>
+      </div>
     </div>
-</template>
-
-<script>
-import { fabric } from "fabric";
-
-export default {
-    data() {
+  </template>
+  
+  <script>
+    import * as fabric from "fabric";
+  
+    export default {
+      data() {
         return {
-            canvases: [],
-            mode: "draw",
+          canvas: null,
+          isDrawingMode: true,
+          brushWidth: 5,
+          brushColor: "#000000",
+          canvasWidth: 800,
+          canvasHeight: 500
         };
-    },
-
-    methods: {
-        toggleMode() {
-            this.mode = this.mode === "draw" ? "view" : "draw";
-            this.canvases.forEach(canvasObj => {
-                this.toggleCanvasMode(canvasObj);
+      },
+  
+      mounted() {
+        this.initCanvas();
+      },
+  
+      beforeDestroy() {
+        if (this.canvas) {
+          this.canvas.dispose();
+        }
+      },
+  
+      methods: {
+        initCanvas() {
+          const canvasEl = document.createElement("canvas");
+          canvasEl.id = "main-canvas";
+          canvasEl.width = this.canvasWidth;
+          canvasEl.height = this.canvasHeight;
+          this.$refs.canvasContainer.appendChild(canvasEl);
+  
+          this.canvas = new fabric.Canvas("main-canvas", {
+            width: this.canvasWidth,
+            height: this.canvasHeight,
+            preserveObjectStacking: true,
+            backgroundColor: "#f0f0f0"
+          });
+  
+          this.canvas.freeDrawingBrush = new fabric.PencilBrush(this.canvas);
+          this.updateBrushSettings();
+  
+          this.canvas.isDrawingMode = this.isDrawingMode;
+        },
+  
+        toggleDrawingMode() {
+          this.isDrawingMode = !this.isDrawingMode;
+          this.canvas.isDrawingMode = this.isDrawingMode;
+  
+          if (!this.isDrawingMode) {
+            this.canvas.selection = true;
+            this.canvas.forEachObject(obj => {
+              obj.selectable = true;
+              obj.hasControls = true;
+              obj.hasBorders = true;
             });
+          } else {
+            this.canvas.discardActiveObject();
+            this.canvas.renderAll();
+          }
         },
-
-        toggleLayerMode(index) {
-            const canvasObj = this.canvases[index];
-            this.toggleCanvasMode(canvasObj);
-        },
-
-        toggleCanvasMode(canvasObj) {
-            if (canvasObj.mode === "draw") {
-                canvasObj.mode = "view";
-                canvasObj.canvas.selection = false;
-            } else {
-                canvasObj.mode = "draw";
-                canvasObj.canvas.selection = true;
-            }
-        },
-
-        handleResize() {
-            this.width = window.innerWidth;
-            this.height = window.innerHeight;
-        },
-
-        createCanvas() {
-            const canvasContainer = document.getElementById("canvas-container");
-            const canvasIndex = this.canvases.length;
-
-            const canvas = new fabric.Canvas(`canvas-${canvasIndex}`, {
-                width: 500,
-                height: 500,
-                backgroundColor: "#f0f0f0",
-            });
-
-            canvas.set({ left: 50 * canvasIndex, top: 50 * canvasIndex });
-            canvas.selection = false;
-
-            const canvasObj = {
-                canvas,
-                mode: "view",
-                opacity: 1,
-                visible: true,
-            };
-
-            canvasContainer.appendChild(canvas.lowerCanvasEl);
-
-            this.canvases.push(canvasObj);
-
-            canvas.on("mouse:down", (e) => this.startPosition(e, canvasIndex));
-            canvas.on("mouse:up", (e) => this.endPosition(e, canvasIndex));
-            canvas.on("mouse:move", (e) => this.draw(e, canvasIndex));
-        },
-
-        toggleLayerVisibility(index) {
-            const canvasObj = this.canvases[index];
-            canvasObj.canvas.setVisible(canvasObj.visible);
-            canvasObj.canvas.renderAll();
-        },
-
-        adjustOpacity(index) {
-            const canvasObj = this.canvases[index];
-            canvasObj.canvas.setOpacity(canvasObj.opacity);
-            canvasObj.canvas.renderAll();
-        },
-
-        moveLayerUp(index) {
-            if (index > 0) {
-                const temp = this.canvases[index];
-                this.canvases.splice(index, 1);
-                this.canvases.splice(index - 1, 0, temp);
-                this.reorderLayers();
-            }
-        },
-
-        moveLayerDown(index) {
-            if (index < this.canvases.length - 1) {
-                const temp = this.canvases[index];
-                this.canvases.splice(index, 1);
-                this.canvases.splice(index + 1, 0, temp);
-                this.reorderLayers();
-            }
-        },
-
-        reorderLayers() {
-            const canvasContainer = document.getElementById("canvas-container");
-            this.canvases.forEach((canvasObj, index) => {
-                canvasObj.canvas.set({ left: 50 * index, top: 50 * index });
-                canvasContainer.appendChild(canvasObj.canvas.lowerCanvasEl);
-            });
-        },
-
-        startPosition(e, canvasIndex) {
-            if (this.canvases[canvasIndex].mode === "view") return;
-
-            const canvasObj = this.canvases[canvasIndex];
-            canvasObj.isDrawing = true;
-            canvasObj.prevX = e.e.offsetX;
-            canvasObj.prevY = e.e.offsetY;
-        },
-
-        endPosition(e, canvasIndex) {
-            if (this.canvases[canvasIndex].mode === "view") return;
-
-            const canvasObj = this.canvases[canvasIndex];
-            canvasObj.isDrawing = false;
-        },
-
-        draw(e, canvasIndex) {
-            if (this.canvases[canvasIndex].mode === "view") return;
-
-            const canvasObj = this.canvases[canvasIndex];
-            if (!canvasObj.isDrawing) return;
-
-            const canvas = canvasObj.canvas;
-            const x = e.e.offsetX;
-            const y = e.e.offsetY;
-
-            if (canvasObj.prevX === null || canvasObj.prevY === null) {
-                canvasObj.prevX = x;
-                canvasObj.prevY = y;
-                return;
-            }
-
-            const stableX = canvasObj.prevX + (x - canvasObj.prevX) * 0.1;
-            const stableY = canvasObj.prevY + (y - canvasObj.prevY) * 0.1;
-
-            const line = new fabric.Line([canvasObj.prevX, canvasObj.prevY, stableX, stableY], {
-                stroke: "black",
-                strokeWidth: 5,
-                selectable: false
-            });
-
-            canvas.add(line);
-            canvasObj.prevX = stableX;
-            canvasObj.prevY = stableY;
-        },
-    }
-};
-</script>
-
-<style scoped>
+  
+        updateBrushSettings() {
+          if (this.canvas && this.canvas.freeDrawingBrush) {
+            this.canvas.freeDrawingBrush.width = this.brushWidth;
+            this.canvas.freeDrawingBrush.color = this.brushColor;
+            this.canvas.freeDrawingBrush.decimate = 8;
+          }
+        }
+      }
+    };
+  </script>
+  
+  <style scoped>
     * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
     }
-
+  
     #canvas-container {
-        position: relative;
-        width: 100%;
-        height: 500px;
-        background-color: #f0f0f0;
+      position: relative;
+      width: 100%;
+      height: 500px;
+      background-color: #f0f0f0;
+      margin-bottom: 20px;
+      overflow: hidden;
+      border: 1px solid #ddd;
     }
-
-    canvas {
-        cursor: grab;
-    }
-
-    .layer-control {
-        margin-bottom: 10px;
-    }
-
-    .layer-control input[type="range"] {
-        width: 100px;
-    }
-</style>
+  </style>
+  
