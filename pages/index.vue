@@ -21,95 +21,101 @@
     </div>
   </template>
   
-  <script>
-    import * as fabric from "fabric";
+<script>
+  import * as fabric from "fabric";
   
-    export default {
-      data() {
-        return {
-          canvas: null,
-          isDrawingMode: true,
-          brushWidth: 5,
-          brushColor: "#000000",
-          canvasWidth: 800,
-          canvasHeight: 500
-        };
-      },
+  export default {
+    data() {
+      return {
+        canvas: null,
+        isDrawingMode: true,
+        brushWidth: 5,
+        brushColor: "#000000",
+        canvasHeight: 500,
+      };
+    },
   
-      mounted() {
-        this.initCanvas();
-      },
+    mounted() {
+      this.initCanvas();
+      window.addEventListener('resize', this.updateCanvasSize);
+    },
   
-      beforeDestroy() {
-        if (this.canvas) {
-          this.canvas.dispose();
-        }
-      },
-  
-      methods: {
-        initCanvas() {
-          const canvasEl = document.createElement("canvas");
-          canvasEl.id = "main-canvas";
-          canvasEl.width = this.canvasWidth;
-          canvasEl.height = this.canvasHeight;
-          this.$refs.canvasContainer.appendChild(canvasEl);
-  
-          this.canvas = new fabric.Canvas("main-canvas", {
-            width: this.canvasWidth,
-            height: this.canvasHeight,
-            preserveObjectStacking: true,
-            backgroundColor: "#f0f0f0"
-          });
-  
-          this.canvas.freeDrawingBrush = new fabric.PencilBrush(this.canvas);
-          this.updateBrushSettings();
-  
-          this.canvas.isDrawingMode = this.isDrawingMode;
-        },
-  
-        toggleDrawingMode() {
-          this.isDrawingMode = !this.isDrawingMode;
-          this.canvas.isDrawingMode = this.isDrawingMode;
-  
-          if (!this.isDrawingMode) {
-            this.canvas.selection = true;
-            this.canvas.forEachObject(obj => {
-              obj.selectable = true;
-              obj.hasControls = true;
-              obj.hasBorders = true;
-            });
-          } else {
-            this.canvas.discardActiveObject();
-            this.canvas.renderAll();
-          }
-        },
-  
-        updateBrushSettings() {
-          if (this.canvas && this.canvas.freeDrawingBrush) {
-            this.canvas.freeDrawingBrush.width = this.brushWidth;
-            this.canvas.freeDrawingBrush.color = this.brushColor;
-            this.canvas.freeDrawingBrush.decimate = 8;
-          }
-        }
+    beforeDestroy() {
+      if (this.canvas) {
+        this.canvas.dispose();
       }
-    };
-  </script>
+      window.removeEventListener('resize', this.updateCanvasSize);
+    },
   
-  <style scoped>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    methods: {
+      initCanvas() {
+        const canvasElem = document.createElement("canvas");
+        canvasElem.id = "main-canvas";
+        canvasElem.height = this.canvasHeight;
   
-    #canvas-container {
-      position: relative;
-      width: 100%;
-      height: 500px;
-      background-color: #f0f0f0;
-      margin-bottom: 20px;
-      overflow: hidden;
-      border: 1px solid #ddd;
+        this.$refs.canvasContainer.appendChild(canvasElem);
+        this.canvas = new fabric.Canvas("main-canvas", {
+          height: this.canvasHeight,
+          preserveObjectStacking: true,
+          backgroundColor: "#f0f0f0"
+        });
+  
+        this.updateCanvasSize();
+        this.canvas.freeDrawingBrush = new fabric.PencilBrush(this.canvas);
+        this.updateBrushSettings();
+  
+        this.canvas.isDrawingMode = this.isDrawingMode;
+      },
+  
+      toggleDrawingMode() {
+        this.isDrawingMode = !this.isDrawingMode;
+        this.canvas.isDrawingMode = this.isDrawingMode;
+  
+        if (!this.isDrawingMode) {
+          this.canvas.selection = true;
+          this.canvas.forEachObject(obj => {
+            obj.selectable = true;
+            obj.hasControls = true;
+            obj.hasBorders = true;
+          });
+        } else {
+          this.canvas.discardActiveObject();
+          this.canvas.renderAll();
+        }
+      },
+  
+      updateBrushSettings() {
+        if (this.canvas && this.canvas.freeDrawingBrush) {
+          this.canvas.freeDrawingBrush.width = this.brushWidth;
+          this.canvas.freeDrawingBrush.color = this.brushColor;
+          this.canvas.freeDrawingBrush.decimate = 8;
+        }
+      },
+  
+      updateCanvasSize() {
+        const containerWidth = this.$refs.canvasContainer.offsetWidth;
+        this.canvas.setWidth(containerWidth);
+        this.canvas.renderAll();
+      }
     }
-  </style>
+  };
+</script>
+  
+<style scoped>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  
+  #canvas-container {
+    position: relative;
+    width: 100%;
+    height: 500px;
+    background-color: #f0f0f0;
+    margin-bottom: 20px;
+    overflow: hidden;
+    border: 1px solid #ddd;
+  }
+</style>
   
