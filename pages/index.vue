@@ -14,10 +14,14 @@
                 <input type="range" id="brush-width" min="1" max="50" v-model.number="brushWidth" @input="updateBrushSettings">
                 <span>{{ brushWidth }}px</span>
             </div>
+            <div class="image-panel">
+                <label for="image-upload">Upload Image:</label>
+                <input type="file" id="image-upload" @change="uploadImage" accept="image/*">
+            </div>
         </div>
     </div>
 </template>
-  
+
 <script>
     import * as fabric from "fabric";
   
@@ -37,7 +41,6 @@
         mounted() {
             this.initCanvas();
             window.addEventListener("resize", this.updateCanvasSize);
-            
             window.addEventListener("keydown", this.handleKeyDown);
         },
     
@@ -161,7 +164,26 @@
                     console.error("Error pasting object:", error);
                 }
             },
-            
+
+            uploadImage(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const imgElement = new Image();
+                        imgElement.src = e.target.result;
+                        
+                        imgElement.onload = () => {
+                            const fabricImage = new fabric.Image(imgElement);
+                            this.canvas.add(fabricImage);
+                            this.canvas.setActiveObject(fabricImage);
+                            this.canvas.requestRenderAll();
+                        };
+                    };
+                    reader.readAsDataURL(file);
+                }
+            },
+
             handleKeyDown(e) {
                 if (this.isDrawingMode) return;
                 
@@ -178,6 +200,11 @@
                         e.preventDefault();
                     }
                 }
+
+                if ((e.ctrlKey || e.metaKey) && e.key === "p") {
+                    e.preventDefault();
+                    this.pasteImageFromClipboard();
+                }
                 
                 if (e.key === "Delete") {
                     if (this.selectedObject) {
@@ -185,6 +212,33 @@
                         e.preventDefault();
                     }
                 }
+            },
+
+            pasteImageFromClipboard() {
+                navigator.clipboard.read().then(async (data) => {
+                    for (const item of data) {
+                        if (item.types.includes("image/png")) {
+                            const blob = await item.getType("image/png");
+                            const url = URL.createObjectURL(blob);
+    
+                            const imgElement = new Image();
+                            imgElement.src = url;
+    
+                            imgElement.onload = () => {
+                                const fabricImage = new fabric.Image(imgElement);
+                                fabricImage.set({
+                                    left: this.canvas.width / 2,
+                                    top: this.canvas.height / 2,
+                                });
+                                this.canvas.add(fabricImage);
+                                this.canvas.setActiveObject(fabricImage);
+                                this.canvas.requestRenderAll();
+                            };
+                        }
+                    }
+                }).catch((err) => {
+                    console.error("Failed to read clipboard content: ", err);
+                });
             }
         }
     };
@@ -196,7 +250,7 @@
         padding: 0;
         box-sizing: border-box;
     }
-    
+
     #canvas-container {
         position: relative;
         width: 100%;
@@ -205,5 +259,9 @@
         margin-bottom: 20px;
         overflow: hidden;
         border: 1px solid #ddd;
+    }
+
+    .image-panel {
+        margin-top: 20px;
     }
 </style>
