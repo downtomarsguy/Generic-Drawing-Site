@@ -104,34 +104,34 @@
                         this.addToHistory({
                             type: "object:modified",
                             object: e.target,
-                            oldState: this._getObjectState(e.target, true)
+                            oldState: this.getObjectState(e.target, true)
                         });
                     }
                 });
 
                 this.canvas.on("object:moving", (e) => {
                     if (!this.isPerformingUndoRedo && !e.target.lastMovingState) {
-                        e.target.lastMovingState = this._getObjectState(e.target);
+                        e.target.lastMovingState = this.getObjectState(e.target);
                     }
                 });
 
                 this.canvas.on("object:scaling", (e) => {
                     if (!this.isPerformingUndoRedo && !e.target.lastScalingState) {
-                        e.target.lastScalingState = this._getObjectState(e.target);
+                        e.target.lastScalingState = this.getObjectState(e.target);
                     }
                 });
 
                 this.canvas.on("object:rotating", (e) => {
                     if (!this.isPerformingUndoRedo && !e.target.lastRotatingState) {
-                        e.target.lastRotatingState = this._getObjectState(e.target);
+                        e.target.lastRotatingState = this.getObjectState(e.target);
                     }
                 });
 
                 this.canvas.on("mouse:up", (e) => {
                     if (this.isPerformingUndoRedo) return;
                     
-                    if (this.canvas._activeObject) {
-                        const obj = this.canvas._activeObject;
+                    if (this.canvas.activeObject) {
+                        const obj = this.canvas.activeObject;
                         
                         if (obj.lastMovingState) {
                             this.addToHistory({
@@ -163,7 +163,7 @@
                 });
             },
             
-            _getObjectState(obj, fullState = false) {
+            getObjectState(obj, fullState = false) {
                 const state = {
                     left: obj.left,
                     top: obj.top,
@@ -209,7 +209,7 @@
                 this.canRedo = true;
                 this.canUndo = this.historyStack.length > 0;
                 
-                this._processUndoAction(action);
+                this.processUndoAction(action);
                 
                 this.isPerformingUndoRedo = false;
             },
@@ -225,12 +225,12 @@
                 this.canUndo = true;
                 this.canRedo = this.redoStack.length > 0;
                 
-                this._processRedoAction(action);
+                this.processRedoAction(action);
                 
                 this.isPerformingUndoRedo = false;
             },
             
-            _processUndoAction(action) {
+            processUndoAction(action) {
                 switch (action.type) {
                     case "path:created":
                         this.canvas.remove(action.object);
@@ -256,7 +256,7 @@
                 this.canvas.renderAll();
             },
             
-            _processRedoAction(action) {
+            processRedoAction(action) {
                 switch (action.type) {
                     case "path:created":
                     case "object:added":
@@ -271,7 +271,7 @@
                     case "object:moved":
                     case "object:scaled":
                     case "object:rotated":
-                        const currentState = this._getObjectState(action.object, true);
+                        const currentState = this.getObjectState(action.object, true);
                         action.object.set(action.newState || currentState);
                         action.object.setCoords();
                         break;
