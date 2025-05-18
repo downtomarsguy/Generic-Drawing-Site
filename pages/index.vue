@@ -6,8 +6,6 @@
                 <button @click="toggleDrawingMode" :class="{ active: isDrawingMode }">
                     {{ isDrawingMode ? "Switch to Select Mode" : "Switch to Draw Mode" }}
                 </button>
-                <button @click="undo" :disabled="!canUndo">Undo</button>
-                <button @click="redo" :disabled="!canRedo">Redo</button>
             </div>
             <div class="color-panel">
                 <label for="brush-color">Color:</label>
@@ -36,12 +34,7 @@
                 brushColor: "#000000",
                 canvasHeight: 500,
                 selectedObject: null,
-                clipboardObject: null,
-                historyStack: [],
-                redoStack: [],
-                canUndo: false,
-                canRedo: false,
-                isPerformingUndoRedo: false
+                clipboardObject: null
             };
         },
     
@@ -89,195 +82,6 @@
                 this.canvas.on("selection:cleared", () => {
                     this.selectedObject = null;
                 });
-
-                this.canvas.on("path:created", (e) => {
-                    if (!this.isPerformingUndoRedo) {
-                        this.addToHistory({
-                            type: "path:created",
-                            object: e.path
-                        });
-                    }
-                });
-
-                this.canvas.on("object:modified", (e) => {
-                    if (!this.isPerformingUndoRedo) {
-                        this.addToHistory({
-                            type: "object:modified",
-                            object: e.target,
-                            oldState: this.getObjectState(e.target, true)
-                        });
-                    }
-                });
-
-                this.canvas.on("object:moving", (e) => {
-                    if (!this.isPerformingUndoRedo && !e.target.lastMovingState) {
-                        e.target.lastMovingState = this.getObjectState(e.target);
-                    }
-                });
-
-                this.canvas.on("object:scaling", (e) => {
-                    if (!this.isPerformingUndoRedo && !e.target.lastScalingState) {
-                        e.target.lastScalingState = this.getObjectState(e.target);
-                    }
-                });
-
-                this.canvas.on("object:rotating", (e) => {
-                    if (!this.isPerformingUndoRedo && !e.target.lastRotatingState) {
-                        e.target.lastRotatingState = this.getObjectState(e.target);
-                    }
-                });
-
-                this.canvas.on("mouse:up", (e) => {
-                    if (this.isPerformingUndoRedo) return;
-                    
-                    if (this.canvas.activeObject) {
-                        const obj = this.canvas.activeObject;
-                        
-                        if (obj.lastMovingState) {
-                            this.addToHistory({
-                                type: "object:moved",
-                                object: obj,
-                                oldState: obj.lastMovingState
-                            });
-                            delete obj.lastMovingState;
-                        }
-                        
-                        if (obj.lastScalingState) {
-                            this.addToHistory({
-                                type: "object:scaled",
-                                object: obj,
-                                oldState: obj.lastScalingState
-                            });
-                            delete obj.lastScalingState;
-                        }
-                        
-                        if (obj.lastRotatingState) {
-                            this.addToHistory({
-                                type: "object:rotated",
-                                object: obj,
-                                oldState: obj.lastRotatingState
-                            });
-                            delete obj.lastRotatingState;
-                        }
-                    }
-                });
-            },
-            
-            getObjectState(obj, fullState = false) {
-                const state = {
-                    left: obj.left,
-                    top: obj.top,
-                    scaleX: obj.scaleX,
-                    scaleY: obj.scaleY,
-                    angle: obj.angle
-                };
-                
-                if (fullState) {
-                    Object.assign(state, {
-                        width: obj.width,
-                        height: obj.height,
-                        fill: obj.fill,
-                        stroke: obj.stroke,
-                        strokeWidth: obj.strokeWidth,
-                        opacity: obj.opacity,
-                    });
-                }
-                
-                return state;
-            },
-            
-            addToHistory(action) {
-                if (this.redoStack.length > 0) {
-                    this.redoStack = [];
-                }
-                
-                this.historyStack.push(action);
-                this.canUndo = true;
-                this.canRedo = false;
-                
-                console.log("History:", this.historyStack);
-            },
-            
-            undo() {
-                if (!this.canUndo || this.historyStack.length === 0) return;
-                
-                this.isPerformingUndoRedo = true;
-                
-                const action = this.historyStack.pop();
-                this.redoStack.push(action);
-                
-                this.canRedo = true;
-                this.canUndo = this.historyStack.length > 0;
-                
-                this.processUndoAction(action);
-                
-                this.isPerformingUndoRedo = false;
-            },
-            
-            redo() {
-                if (!this.canRedo || this.redoStack.length === 0) return;
-                
-                this.isPerformingUndoRedo = true;
-                
-                const action = this.redoStack.pop();
-                this.historyStack.push(action);
-                
-                this.canUndo = true;
-                this.canRedo = this.redoStack.length > 0;
-                
-                this.processRedoAction(action);
-                
-                this.isPerformingUndoRedo = false;
-            },
-            
-            processUndoAction(action) {
-                switch (action.type) {
-                    case "path:created":
-                        this.canvas.remove(action.object);
-                        break;
-                        
-                    case "object:added":
-                        this.canvas.remove(action.object);
-                        break;
-                        
-                    case "object:removed":
-                        this.canvas.add(action.object);
-                        break;
-                        
-                    case "object:modified":
-                    case "object:moved":
-                    case "object:scaled":
-                    case "object:rotated":
-                        action.object.set(action.oldState);
-                        action.object.setCoords();
-                        break;
-                }
-                
-                this.canvas.renderAll();
-            },
-            
-            processRedoAction(action) {
-                switch (action.type) {
-                    case "path:created":
-                    case "object:added":
-                        this.canvas.add(action.object);
-                        break;
-                        
-                    case "object:removed":
-                        this.canvas.remove(action.object);
-                        break;
-                        
-                    case "object:modified":
-                    case "object:moved":
-                    case "object:scaled":
-                    case "object:rotated":
-                        const currentState = this.getObjectState(action.object, true);
-                        action.object.set(action.newState || currentState);
-                        action.object.setCoords();
-                        break;
-                }
-                
-                this.canvas.renderAll();
             },
             
             toggleDrawingMode() {
@@ -313,11 +117,6 @@
             
             deleteSelectedObject() {
                 if (this.selectedObject) {
-                    this.addToHistory({
-                        type: "object:removed",
-                        object: this.selectedObject
-                    });
-                    
                     this.canvas.remove(this.selectedObject);
                     this.selectedObject = null;
                     this.canvas.renderAll();
@@ -350,18 +149,10 @@
                         clonedObj.canvas = this.canvas;
                         clonedObj.forEachObject((obj) => {
                             this.canvas.add(obj);
-                            this.addToHistory({
-                                type: "object:added",
-                                object: obj
-                            });
                         });
                         clonedObj.setCoords();
                     } else {
                         this.canvas.add(clonedObj);
-                        this.addToHistory({
-                            type: "object:added",
-                            object: clonedObj
-                        });
                     }
                     
                     this.clipboardObject.top += 10;
@@ -385,12 +176,6 @@
                         imgElement.onload = () => {
                             const fabricImage = new fabric.Image(imgElement);
                             this.canvas.add(fabricImage);
-                            
-                            this.addToHistory({
-                                type: "object:added",
-                                object: fabricImage
-                            });
-                            
                             this.canvas.setActiveObject(fabricImage);
                             this.canvas.requestRenderAll();
                         };
@@ -400,18 +185,6 @@
             },
 
             handleKeyDown(e) {
-                if ((e.ctrlKey || e.metaKey) && e.key === "z") {
-                    e.preventDefault();
-                    this.undo();
-                    return;
-                }
-                
-                if ((e.ctrlKey || e.metaKey) && e.key === "y") {
-                    e.preventDefault();
-                    this.redo();
-                    return;
-                }
-                
                 if (this.isDrawingMode) return;
                 
                 if ((e.ctrlKey || e.metaKey) && e.key === "c") {
@@ -457,14 +230,7 @@
                                     left: this.canvas.width / 2,
                                     top: this.canvas.height / 2,
                                 });
-                                
                                 this.canvas.add(fabricImage);
-                                
-                                this.addToHistory({
-                                    type: "object:added",
-                                    object: fabricImage
-                                });
-                                
                                 this.canvas.setActiveObject(fabricImage);
                                 this.canvas.requestRenderAll();
                             };
@@ -493,5 +259,9 @@
         margin-bottom: 20px;
         overflow: hidden;
         border: 1px solid #ddd;
+    }
+
+    .image-panel {
+        margin-top: 20px;
     }
 </style>
