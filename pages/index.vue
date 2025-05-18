@@ -13,7 +13,8 @@
                 <label for="brush-width">Width:</label>
                 <input type="range" id="brush-width" min="1" max="50" v-model.number="brushWidth" @input="updateBrushSettings">
                 <span>{{ brushWidth }}px</span>
-            </div>
+                <label for="brush-decimate">Decimate:</label>
+                <input type="range" id="brush-decimate" min="1" max="50" v-model.number="brushDecimate" @input="updateBrushSettings">            </div>
             <div class="image-panel">
                 <label for="image-upload">Upload Image:</label>
                 <input type="file" id="image-upload" @change="uploadImage" accept="image/*">
@@ -34,7 +35,8 @@
                 brushColor: "#000000",
                 canvasHeight: 500,
                 selectedObject: null,
-                clipboardObject: null
+                clipboardObject: null,
+                brushDecimate: 8,
             };
         },
     
@@ -105,7 +107,7 @@
                 if (this.canvas && this.canvas.freeDrawingBrush) {
                     this.canvas.freeDrawingBrush.width = this.brushWidth;
                     this.canvas.freeDrawingBrush.color = this.brushColor;
-                    this.canvas.freeDrawingBrush.decimate = 8;
+                    this.canvas.freeDrawingBrush.decimate = this.brushDecimate;
                 }
             },
             
